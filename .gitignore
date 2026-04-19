@@ -1,0 +1,10 @@
+.venv/
+data/raw/
+data/processed/
+data/splits/
+__pycache__/
+*.pyc
+.env
+checkpoints/
+wandb/
+mlruns/
