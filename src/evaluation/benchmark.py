@@ -54,19 +54,21 @@ Text: {text}"""
     # ------------------------------------------------------------------
 
     def load_models(self) -> None:
-        """Load all three inference systems into memory."""
+        import torch
+        
         logger.info("Loading base GLiNER...")
         self.base_gliner = GLiNER.from_pretrained(self.base_model_name)
-
-        logger.info(f"Loading fine-tuned GLiNER from {self.finetuned_model_path}...")
+        self.base_gliner.model.to('cpu')  # move to CPU to free GPU memory
+        
+        logger.info("Loading fine-tuned GLiNER...")
         self.finetuned_gliner = GLiNER.from_pretrained(
             self.finetuned_model_path,
             load_tokenizer=True
         )
-
+        self.finetuned_gliner.model.to('cpu')
+        
         logger.info("Initializing OpenAI client...")
         self.openai_client = OpenAI()
-
         logger.info("All models loaded.")
 
     # ------------------------------------------------------------------
@@ -115,13 +117,13 @@ Text: {text}"""
     # GLiNER inference
     # ------------------------------------------------------------------
 
-    def run_base_gliner(
-        self, examples: List[Dict]
-    ) -> Tuple[List[List[Dict]], List[float]]:
-        """Run base GLiNER over test set, return predictions and latencies."""
+    def run_base_gliner(self, examples):
+        import torch
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.base_gliner.model.to(device)
+        
         predictions = []
         latencies = []
-
         for example in examples:
             text = example.get("text", "")
             start = time.perf_counter()
@@ -129,21 +131,22 @@ Text: {text}"""
                 text, self.entity_types, threshold=self.threshold
             )
             latency_ms = (time.perf_counter() - start) * 1000
-
             predictions.append(entities)
             latencies.append(latency_ms)
-
-        logger.info(f"Base GLiNER: {len(predictions)} predictions, "
-                   f"p50={np.percentile(latencies, 50):.1f}ms")
+        
+        self.base_gliner.model.to('cpu')  # free GPU when done
+        torch.cuda.empty_cache()
+        
+        logger.info(f"Base GLiNER done, p50={np.percentile(latencies,50):.1f}ms")
         return predictions, latencies
 
-    def run_finetuned_gliner(
-        self, examples: List[Dict]
-    ) -> Tuple[List[List[Dict]], List[float]]:
-        """Run fine-tuned GLiNER over test set."""
+    def run_finetuned_gliner(self, examples):
+        import torch
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.finetuned_gliner.model.to(device)
+        
         predictions = []
         latencies = []
-
         for example in examples:
             text = example.get("text", "")
             start = time.perf_counter()
@@ -151,12 +154,13 @@ Text: {text}"""
                 text, self.entity_types, threshold=self.threshold
             )
             latency_ms = (time.perf_counter() - start) * 1000
-
             predictions.append(entities)
             latencies.append(latency_ms)
-
-        logger.info(f"Fine-tuned GLiNER: {len(predictions)} predictions, "
-                   f"p50={np.percentile(latencies, 50):.1f}ms")
+        
+        self.finetuned_gliner.model.to('cpu')
+        torch.cuda.empty_cache()
+        
+        logger.info(f"Fine-tuned GLiNER done, p50={np.percentile(latencies,50):.1f}ms")
         return predictions, latencies
 
     # ------------------------------------------------------------------
