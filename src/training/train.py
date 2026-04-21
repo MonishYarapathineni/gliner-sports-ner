@@ -2,7 +2,7 @@ import argparse
 import json
 import logging
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import Dict, List
 
 import wandb
 from gliner import GLiNER
@@ -19,29 +19,34 @@ def load_data(path: str) -> List[Dict]:
     Load GLiNER-format examples from a JSONL file.
 
     Args:
-        path: Path to a JSONL file where each line is a training example dict.
+        path: Path to JSONL file.
 
     Returns:
         List of GLiNER training example dicts.
     """
-    # TODO: Open the file and parse each line with json.loads.
-    # TODO: Return the list of dicts.
-    raise NotImplementedError
+    examples = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                examples.append(json.loads(line))
+    logger.info(f"Loaded {len(examples)} examples from {path}")
+    return examples
 
 
 def initialize_model(config: TrainingConfig) -> GLiNER:
     """
-    Load the GLiNER model from a pretrained checkpoint.
+    Load GLiNER from pretrained checkpoint.
 
     Args:
-        config: TrainingConfig with model_name and cache_dir.
+        config: TrainingConfig with model_name.
 
     Returns:
         Loaded GLiNER model instance.
     """
-    # TODO: Call GLiNER.from_pretrained(config.model_name, cache_dir=config.cache_dir).
-    # TODO: Return the model.
-    raise NotImplementedError
+    logger.info(f"Loading model: {config.model_name}")
+    model = GLiNER.from_pretrained(config.model_name)
+    return model
 
 
 def build_trainer(
@@ -51,7 +56,7 @@ def build_trainer(
     config: TrainingConfig,
 ) -> Trainer:
     """
-    Construct a GLiNER Trainer with the provided data and config.
+    Construct GLiNER Trainer with config and callbacks.
 
     Args:
         model: Initialized GLiNER model.
@@ -60,40 +65,79 @@ def build_trainer(
         config: TrainingConfig with all hyperparameters.
 
     Returns:
-        Configured GLiNER Trainer instance.
+        Configured Trainer instance.
     """
-    # TODO: Build TrainingArguments from config fields
-    #       (output_dir, num_train_epochs, learning_rate, per_device_train_batch_size, etc.).
-    # TODO: Instantiate EntityF1Callback with config.entity_types.
-    # TODO: Construct and return Trainer(model, args, train_data, val_data, callbacks=[...]).
-    raise NotImplementedError
+    training_args = TrainingArguments(
+        output_dir=config.output_dir,
+        learning_rate=config.learning_rate,         # backbone LR — low to prevent forgetting
+        others_lr=config.others_lr,                 # span head LR — higher for domain adaptation
+        weight_decay=config.weight_decay,
+        others_weight_decay=config.others_weight_decay,
+        lr_scheduler_type=config.lr_scheduler_type,
+        warmup_ratio=config.warmup_ratio,
+        per_device_train_batch_size=config.per_device_train_batch_size,
+        per_device_eval_batch_size=config.per_device_eval_batch_size,
+        num_train_epochs=config.num_train_epochs,
+        evaluation_strategy="epoch",
+        save_strategy="epoch",
+        load_best_model_at_end=True,
+        metric_for_best_model="f1",
+        greater_is_better=True,
+        fp16=config.fp16,
+        seed=config.seed,
+        report_to="wandb",
+    )
+
+    callback = EntityF1Callback(entity_types=config.entity_types)
+
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_data,
+        eval_dataset=val_data,
+        callbacks=[callback],
+    )
+
+    return trainer
 
 
 def run_experiment(config: TrainingConfig) -> None:
     """
-    Initialize W&B, load data, build trainer, and train the model.
+    Full training run — W&B init, load data, train, save.
 
     Args:
         config: Fully populated TrainingConfig.
     """
-    # TODO: Call wandb.init with project=config.wandb_project, name=config.wandb_run_name,
-    #       and config=vars(config).
-    # TODO: Load train and val data with load_data.
-    # TODO: Initialize model with initialize_model.
-    # TODO: Build trainer with build_trainer.
-    # TODO: Call trainer.train().
-    # TODO: Save final model to config.output_dir.
-    # TODO: Call wandb.finish().
-    raise NotImplementedError
+    # Init W&B — logs all hyperparameters alongside metrics
+    wandb.init(
+        project=config.wandb_project,
+        name=config.wandb_run_name,
+        config=vars(config),    # stores all hyperparams for experiment comparison
+    )
+
+    logger.info("Loading datasets...")
+    train_data = load_data(config.train_path)
+    val_data = load_data(config.val_path)
+
+    logger.info(f"Train: {len(train_data)} | Val: {len(val_data)}")
+
+    model = initialize_model(config)
+    trainer = build_trainer(model, train_data, val_data, config)
+
+    logger.info("Starting training...")
+    trainer.train()
+
+    # Save final model
+    output_path = Path(config.output_dir) / "best"
+    output_path.mkdir(parents=True, exist_ok=True)
+    model.save_pretrained(str(output_path))
+    logger.info(f"Model saved to {output_path}")
+
+    wandb.finish()
 
 
 def parse_args() -> argparse.Namespace:
-    """
-    Parse command-line arguments that override TrainingConfig defaults.
-
-    Returns:
-        Parsed argparse.Namespace.
-    """
+    """Parse CLI overrides for TrainingConfig."""
     parser = argparse.ArgumentParser(description="Fine-tune GLiNER for sports NER")
     parser.add_argument("--model_name", type=str, default=None)
     parser.add_argument("--learning_rate", type=float, default=None)
@@ -107,16 +151,19 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    """
-    Entry point: build config from defaults + CLI overrides, then run experiment.
-    """
+    """Entry point — build config, apply CLI overrides, run experiment."""
     logging.basicConfig(level=logging.INFO)
     args = parse_args()
     config = TrainingConfig()
 
-    # TODO: Apply non-None CLI overrides onto config fields.
-    # TODO: Call run_experiment(config).
-    raise NotImplementedError
+    # Apply CLI overrides — only override if explicitly passed
+    for field in vars(args):
+        value = getattr(args, field)
+        if value is not None:
+            setattr(config, field, value)
+            logger.info(f"CLI override: {field} = {value}")
+
+    run_experiment(config)
 
 
 if __name__ == "__main__":
