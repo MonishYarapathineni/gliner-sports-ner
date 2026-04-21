@@ -103,7 +103,67 @@ def build_trainer(
     )
 
     return trainer
-   
+
+def convert_to_gliner_format(examples: List[Dict]) -> List[Dict]:
+    """
+    Convert our annotated format to GLiNER's native training format.
+    
+    Our format:
+        {"text": str, "entities": [{"start": int, "end": int, "label": str}]}
+    
+    GLiNER format:
+        {"tokenized_text": List[str], "ner": [[start_tok, end_tok, label]]}
+    
+    Args:
+        examples: List of our annotated examples.
+    
+    Returns:
+        List of GLiNER-format dicts.
+    """
+    converted = []
+
+    for example in examples:
+        text = example.get("text", "")
+        entities = example.get("entities", [])
+
+        # Whitespace tokenize — must match how GLiNER tokenizes internally
+        tokens = text.split()
+
+        # Build char-to-token index map
+        char_to_token = {}
+        char_pos = 0
+        for i, token in enumerate(tokens):
+            for _ in token:
+                char_to_token[char_pos] = i
+                char_pos += 1
+            char_pos += 1  # space
+
+        ner = []
+        for ent in entities:
+            start_char = ent.get("start", -1)
+            end_char = ent.get("end", -1)
+            label = ent.get("label", "")
+
+            # Map char offsets to token indices
+            start_tok = char_to_token.get(start_char)
+
+            # end_char is exclusive, so look up end_char - 1
+            end_tok = char_to_token.get(end_char - 1)
+
+            if start_tok is None or end_tok is None:
+                continue
+
+            ner.append([start_tok, end_tok, label])
+
+        if not ner:
+            continue
+
+        converted.append({
+            "tokenized_text": tokens,
+            "ner": ner,
+        })
+
+    return converted
 
 def run_experiment(config: TrainingConfig) -> None:
     """
@@ -116,12 +176,16 @@ def run_experiment(config: TrainingConfig) -> None:
     wandb.init(
         project=config.wandb_project,
         name=config.wandb_run_name,
-        config=vars(config),    # stores all hyperparams for experiment comparison
+        config=vars(config),
     )
 
     logger.info("Loading datasets...")
-    train_data = load_data(config.train_path)
-    val_data = load_data(config.val_path)
+    train_raw = load_data(config.train_path)
+    val_raw = load_data(config.val_path)
+
+    # Convert to GLiNER native format
+    train_data = convert_to_gliner_format(train_raw)
+    val_data = convert_to_gliner_format(val_raw)
 
     logger.info(f"Train: {len(train_data)} | Val: {len(val_data)}")
 
@@ -131,7 +195,6 @@ def run_experiment(config: TrainingConfig) -> None:
     logger.info("Starting training...")
     trainer.train()
 
-    # Save final model
     output_path = Path(config.output_dir) / "best"
     output_path.mkdir(parents=True, exist_ok=True)
     model.save_pretrained(str(output_path))
