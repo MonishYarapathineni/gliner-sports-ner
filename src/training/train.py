@@ -49,6 +49,7 @@ def initialize_model(config: TrainingConfig) -> GLiNER:
     return model
 
 
+
 def convert_to_gliner_format(examples: List[Dict]) -> List[Dict]:
     """
     Convert our annotated format to GLiNER's native training format.
@@ -158,6 +159,36 @@ def run_experiment(config: TrainingConfig) -> None:
     logger.info(f"Model saved to {output_path}")
 
     wandb.finish()
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse CLI overrides for TrainingConfig."""
+    parser = argparse.ArgumentParser(description="Fine-tune GLiNER for sports NER")
+    parser.add_argument("--model_name", type=str, default=None)
+    parser.add_argument("--learning_rate", type=float, default=None)
+    parser.add_argument("--num_train_epochs", type=int, default=None)
+    parser.add_argument("--per_device_train_batch_size", type=int, default=None)
+    parser.add_argument("--max_length", type=int, default=None)
+    parser.add_argument("--output_dir", type=str, default=None)
+    parser.add_argument("--wandb_run_name", type=str, default=None)
+    parser.add_argument("--seed", type=int, default=None)
+    return parser.parse_args()
+
+
+def main() -> None:
+    """Entry point — build config, apply CLI overrides, run experiment."""
+    logging.basicConfig(level=logging.INFO)
+    args = parse_args()
+    config = TrainingConfig()
+
+    # Apply CLI overrides — only override if explicitly passed
+    for field in vars(args):
+        value = getattr(args, field)
+        if value is not None:
+            setattr(config, field, value)
+            logger.info(f"CLI override: {field} = {value}")
+
+    run_experiment(config)
 
 
 if __name__ == "__main__":
