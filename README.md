@@ -5,7 +5,7 @@ sdk: gradio
 sdk_version: 6.13.0
 ---
 
-# 🏈 GLiNER Sports NER
+# GLiNER Sports NER
 
 Domain-specific named entity recognition for sports articles. Fine-tuned [GLiNER](https://github.com/urchade/GLiNER) (DeBERTa-v3 encoder) on 3,173 annotated sports examples across NBA, NFL, MLB, and NHL.
 
@@ -27,7 +27,7 @@ Fine-tuned GLiNER matches GPT-4o-mini F1 at **10x lower latency** and **200x low
 
 ## Live Demo
 
-🚀 [Try it on HuggingFace Spaces](https://huggingface.co/spaces/myarapat/gliner-sports-ner)
+[Try it on HuggingFace Spaces](https://huggingface.co/spaces/myarapat/gliner-sports-ner)
 
 Paste any sports article and extract structured entities in real time.
 
