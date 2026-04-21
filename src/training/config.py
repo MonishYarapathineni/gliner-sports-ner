@@ -12,23 +12,29 @@ class TrainingConfig:
     output_dir: str = "checkpoints/gliner-sports"
     cache_dir: str = ".cache/models"
 
-    # Optimizer
-    learning_rate: float = 5e-5
+    # Optimizer — differential LRs for backbone vs span head
+    learning_rate: float = 5e-6          # backbone — low to prevent catastrophic forgetting
+    others_lr: float = 1e-5              # span head — higher for domain adaptation
     weight_decay: float = 0.01
+    others_weight_decay: float = 0.01
     warmup_ratio: float = 0.1
     max_grad_norm: float = 1.0
+    lr_scheduler_type: str = "linear"
 
     # Schedule
-    num_train_epochs: int = 10
+    num_train_epochs: int = 5
     per_device_train_batch_size: int = 8
     per_device_eval_batch_size: int = 16
     gradient_accumulation_steps: int = 2
 
     # Tokenization
-    max_length: int = 512
+    max_length: int = 384
     stride: int = 128
 
-    # GLiNER-specific
+    # Hardware
+    fp16: bool = False                   # set True if on A100/V100, False if getting NaN
+
+    # GLiNER entity schema
     entity_types: List[str] = field(default_factory=lambda: [
         "PLAYER",
         "TEAM",
@@ -56,18 +62,15 @@ class TrainingConfig:
     # W&B
     wandb_project: str = "gliner-sports-ner"
     wandb_entity: str = ""
-    wandb_run_name: str = ""
+    wandb_run_name: str = "gliner-sports-v1"
     report_to: str = "wandb"
 
     # Data paths
-    raw_data_dir: str = "data/raw"
-    processed_data_dir: str = "data/processed"
-    splits_dir: str = "data/splits"
-    train_file: str = "data/splits/train.jsonl"
-    val_file: str = "data/splits/val.jsonl"
-    test_file: str = "data/splits/test.jsonl"
+    train_path: str = "data/splits/train.jsonl"
+    val_path: str = "data/splits/val.jsonl"
+    test_path: str = "data/splits/test.jsonl"
 
-    # Split ratios (must sum to 1.0)
+    # Split ratios
     train_ratio: float = 0.80
     val_ratio: float = 0.10
     test_ratio: float = 0.10
