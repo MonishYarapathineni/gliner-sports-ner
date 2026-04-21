@@ -167,15 +167,16 @@ Text: {text}"""
     # GPT inference
     # ------------------------------------------------------------------
 
-    def run_gpt(
-        self, examples: List[Dict]
-    ) -> Tuple[List[List[Dict]], List[float], float]:
-        """Run GPT-4o-mini over test set."""
+    def run_gpt(self, examples):
         predictions = []
         latencies = []
         total_cost = 0.0
 
         for i, example in enumerate(examples):
+            # Log every 50 examples so you know it's working
+            if i % 50 == 0:
+                logger.info(f"GPT progress: {i}/{len(examples)}")
+
             text = example.get("text", "")
             prompt = self.GPT_ANNOTATION_PROMPT.format(text=text)
 
@@ -197,7 +198,6 @@ Text: {text}"""
                 parsed = json.loads(content)
                 raw_entities = parsed.get("entities", [])
 
-                # Compute offsets ourselves — never trust GPT for math
                 aligned = []
                 for ent in raw_entities:
                     entity_text = ent.get("text", "").strip()
@@ -216,7 +216,6 @@ Text: {text}"""
                 predictions.append(aligned)
                 latencies.append(latency_ms)
 
-                # Track cost
                 usage = response.usage
                 total_cost += self.estimate_gpt_cost(
                     usage.prompt_tokens,
@@ -228,14 +227,13 @@ Text: {text}"""
                 predictions.append([])
                 latencies.append(0.0)
 
-            # Rate limit buffer
             time.sleep(0.1)
 
-        logger.info(f"GPT: {len(predictions)} predictions, "
-                   f"p50={np.percentile(latencies, 50):.1f}ms, "
-                   f"cost=${total_cost:.4f}")
+        logger.info(f"GPT complete: {len(predictions)} predictions, "
+                f"p50={np.percentile(latencies, 50):.1f}ms, "
+                f"cost=${total_cost:.4f}")
         return predictions, latencies, total_cost
-
+    
     def estimate_gpt_cost(
         self, prompt_tokens: int, completion_tokens: int
     ) -> float:
