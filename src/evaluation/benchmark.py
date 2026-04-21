@@ -32,7 +32,7 @@ Text: {text}"""
     def __init__(
         self,
         base_model_name: str = "urchade/gliner_medium-v2.1",
-        finetuned_model_path: str = "checkpoints/gliner-sports/best",
+        finetuned_model_path: str = "myarapat/gliner-sports-ner",
         gpt_model: str = "gpt-4o-mini",
         entity_types: Optional[List[str]] = None,
         threshold: float = 0.5,

@@ -8,3 +8,9 @@ __pycache__/
 checkpoints/
 wandb/
 mlruns/
+
+checkpoints/
+*.bin
+*.pt
+*.pth
+wandb/

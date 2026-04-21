@@ -1,0 +1,33 @@
+{
+  "results": [
+    {
+      "system": "gliner_base",
+      "f1": 0.6807,
+      "precision": 0.6503,
+      "recall": 0.7142,
+      "p50_latency_ms": 128.9,
+      "p99_latency_ms": 214.5,
+      "total_cost_usd": 0.0
+    },
+    {
+      "system": "gliner_finetuned",
+      "f1": 0.8416,
+      "precision": 0.7899,
+      "recall": 0.9005,
+      "p50_latency_ms": 127.7,
+      "p99_latency_ms": 206.2,
+      "total_cost_usd": 0.0
+    },
+    {
+      "system": "gpt4o_mini",
+      "f1": 0.838,
+      "precision": 0.9031,
+      "recall": 0.7816,
+      "p50_latency_ms": 1331.5,
+      "p99_latency_ms": 5431.2,
+      "total_cost_usd": 0.0278
+    }
+  ],
+  "test_set_size": 398,
+  "evaluated_at": "2026-04-21T21:16:08.217696+00:00"
+}

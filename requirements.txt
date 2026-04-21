@@ -6,3 +6,8 @@ requests
 soupsieve
 typing_extensions
 urllib3
+gliner
+torch
+gradio
+huggingface_hub
+pandas
