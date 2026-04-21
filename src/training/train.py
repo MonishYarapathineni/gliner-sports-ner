@@ -63,14 +63,12 @@ def build_trainer(
         train_data: Training examples.
         val_data: Validation examples.
         config: TrainingConfig with all hyperparameters.
-
-    Returns:
-        Configured Trainer instance.
     """
+
     training_args = TrainingArguments(
         output_dir=config.output_dir,
-        learning_rate=config.learning_rate,         # backbone LR — low to prevent forgetting
-        others_lr=config.others_lr,                 # span head LR — higher for domain adaptation
+        learning_rate=config.learning_rate,
+        others_lr=config.others_lr,
         weight_decay=config.weight_decay,
         others_weight_decay=config.others_weight_decay,
         lr_scheduler_type=config.lr_scheduler_type,
@@ -78,17 +76,23 @@ def build_trainer(
         per_device_train_batch_size=config.per_device_train_batch_size,
         per_device_eval_batch_size=config.per_device_eval_batch_size,
         num_train_epochs=config.num_train_epochs,
-        evaluation_strategy="epoch",
+        eval_strategy="epoch",         
         save_strategy="epoch",
         load_best_model_at_end=True,
-        metric_for_best_model="f1",
+        metric_for_best_model="eval_f1",
         greater_is_better=True,
         fp16=config.fp16,
         seed=config.seed,
+        logging_steps=config.logging_steps,
+        save_total_limit=config.save_total_limit,
         report_to="wandb",
     )
 
-    callback = EntityF1Callback(entity_types=config.entity_types)
+    callback = EntityF1Callback(
+        entity_types=config.entity_types,
+        early_stopping_patience=config.early_stopping_patience,
+        early_stopping_threshold=config.early_stopping_threshold,
+    )
 
     trainer = Trainer(
         model=model,
@@ -99,7 +103,7 @@ def build_trainer(
     )
 
     return trainer
-
+   
 
 def run_experiment(config: TrainingConfig) -> None:
     """
